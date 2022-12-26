@@ -1,10 +1,11 @@
 var glob = require("glob");
 var path = require("path");
-var fs = require('fs');
+var fs = require("fs");
+var loaderUtils = require("loader-utils");
 
 function walkUpToFindNodeModulesPath(context) {
-  var tempPath = path.resolve(context, 'node_modules');
-  var upDirPath = path.resolve(context, '../');
+  var tempPath = path.resolve(context, "node_modules");
+  var upDirPath = path.resolve(context, "../");
 
   if (fs.existsSync(tempPath) && fs.lstatSync(tempPath).isDirectory()) {
     return tempPath;
@@ -19,7 +20,7 @@ function isNodeModule(str) {
   return !str.match(/^\./);
 }
 
-module.exports = function(source) {
+module.exports = function (source) {
   this.cacheable && this.cacheable(true);
 
   var self = this;
@@ -28,8 +29,8 @@ module.exports = function(source) {
   var importFiles = /import +([\'\"])(.*?)\1/gm;
   var importSass = /@import +([\'\"])(.*?)\1/gm;
   var resourceDir = path.dirname(this.resourcePath);
-
   var nodeModulesPath = walkUpToFindNodeModulesPath(resourceDir);
+  var loaderOptions = Object.assign({}, loaderUtils.getOptions(this));
 
   function replacer(match, fromStatement, obj, quote, filename) {
     var modules = [];
@@ -37,8 +38,20 @@ module.exports = function(source) {
 
     if (!filename.match(/\*/)) return match;
 
+    if (loaderOptions.alias) {
+      Object.entries(loaderOptions.alias).some((args) => {
+        var alias = args.alias;
+        var repl = args.repl;
+
+        if (filename.startsWith(alias)) {
+          filename = filename.replace(alias, repl);
+          return true;
+        }
+      });
+    }
+
     var globRelativePath = filename.match(/!?([^!]*)$/)[1];
-    var prefix = filename.replace(globRelativePath, '');
+    var prefix = filename.replace(globRelativePath, "");
     var cwdPath;
 
     if (isNodeModule(globRelativePath)) {
@@ -54,31 +67,28 @@ module.exports = function(source) {
 
     var result = glob
       .sync(globRelativePath, {
-        cwd: cwdPath
+        cwd: cwdPath,
       })
       .map((file, index) => {
         var fileName = quote + prefix + file + quote;
 
         if (match.match(importSass)) {
-          return '@import ' + fileName;
-
+          return "@import " + fileName;
         } else if (match.match(importModules)) {
           var moduleName = obj + index;
           modules.push(moduleName);
           withModules = true;
-          return 'import * as ' + moduleName + ' from ' + fileName;
-
+          return "import * as " + moduleName + " from " + fileName;
         } else if (match.match(importFiles)) {
-          return 'import ' + fileName;
-
+          return "import " + fileName;
         } else {
           self.emitWarning('Unknown import: "' + match + '"');
         }
       })
-      .join('; ');
+      .join("; ");
 
     if (result && withModules) {
-      result += '; var ' + obj + ' = [' + modules.join(', ') + ']';
+      result += "; var " + obj + " = [" + modules.join(", ") + "]";
     }
 
     if (!result) {

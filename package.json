@@ -1,6 +1,6 @@
 {
   "name": "webpack-import-glob-loader",
-  "version": "1.6.3",
+  "version": "1.6.4",
   "description": "ES6 import with glob patterns (preloader for Webpack)",
   "license": "MIT",
   "main": "index.js",
@@ -15,7 +15,8 @@
     "es6"
   ],
   "dependencies": {
-    "glob": "^5.0.15"
+    "glob": "^5.0.15",
+    "loader-utils": "^1.2.3"
   },
   "devDependencies": {
     "babel-core": "^6.0.0",
